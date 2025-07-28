@@ -1575,50 +1575,50 @@ class HeadingClassifier:
             "error": error_message
         }
 
-    def classify_headings(input_data: List[Dict[str, Any]]) -> Dict[str, Any]:
-        """
-        Main function to classify headings from input data with header/footer detection
+def classify_headings(input_data: List[Dict[str, Any]]) -> Dict[str, Any]:
+    """
+    Main function to classify headings from input data with header/footer detection
+    
+    Args:
+        input_data: List of dictionaries containing text elements with keys:
+                - text, page, font_size, font, is_bold, is_italic, etc.
         
-        Args:
-            input_data: List of dictionaries containing text elements with keys:
-                    - text, page, font_size, font, is_bold, is_italic, etc.
-            
-        Returns:
-            Dictionary with format:
-            {
-                "title": str,           # Document title (empty if none found)
-                "outline": [            # List of heading entries
-                    {
-                        "level": str,   # H1, H2, H3, etc.
-                        "text": str,    # Heading text
-                        "page": int     # Page number
-                    }
-                ]
-            }
-        """
-        try:
-            classifier = HeadingClassifier()
-            result = classifier.process_input(input_data)
-            return result
-            
-        except Exception as e:
-            return {
-                "title": "",
-                "outline": [],
-                "error": f"Fatal error: {str(e)}"
-            }
+    Returns:
+        Dictionary with format:
+        {
+            "title": str,           # Document title (empty if none found)
+            "outline": [            # List of heading entries
+                {
+                    "level": str,   # H1, H2, H3, etc.
+                    "text": str,    # Heading text
+                    "page": int     # Page number
+                }
+            ]
+        }
+    """
+    try:
+        classifier = HeadingClassifier()
+        result = classifier.process_input(input_data)
+        return result
+        
+    except Exception as e:
+        return {
+            "title": "",
+            "outline": [],
+            "error": f"Fatal error: {str(e)}"
+        }
 
-    def save_output(result: Dict[str, Any], filename: str = "output-learn-acrobat-2-exp.json"):
-        """
-        Save the classification result to a JSON file
+def save_output(result: Dict[str, Any], filename: str = "output-learn-acrobat-2-exp.json"):
+    """
+    Save the classification result to a JSON file
+    
+    Args:
+        result: The classification result dictionary
+        filename: Output filename (default: "output-learn-acrobat-2-exp.json")
+    """
+    try:
+        with open(filename, 'w', encoding='utf-8') as f:
+            json.dump(result, f, indent=4, ensure_ascii=False)
         
-        Args:
-            result: The classification result dictionary
-            filename: Output filename (default: "output-learn-acrobat-2-exp.json")
-        """
-        try:
-            with open(filename, 'w', encoding='utf-8') as f:
-                json.dump(result, f, indent=4, ensure_ascii=False)
-            
-        except Exception as e:
-            pass  # Fail silently
+    except Exception as e:
+        pass  # Fail silently
