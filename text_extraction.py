@@ -1,8 +1,7 @@
 import fitz  # PyMuPDF
 import json
 from typing import List, Dict, Any
-from datetime import datetime
-from structure_analysis import classify_headings  # Add this import
+
 
 class PDFLineExtractor:
     def __init__(self, pdf_path: str):
@@ -11,12 +10,10 @@ class PDFLineExtractor:
         self.pdf_lines = []
 
     def extract_text_lines(self) -> List[Dict[str, Any]]:
-        print("Extracting text lines with formatting from PDF...")
+        """Extract text lines with formatting information from all pages of the PDF."""
         all_lines = []
 
         for page_num, page in enumerate(self.doc, start=1):
-            print(f"Processing page {page_num}/{len(self.doc)}")
-
             try:
                 blocks = page.get_text("dict")["blocks"]
                 page_lines = []
@@ -30,6 +27,7 @@ class PDFLineExtractor:
                         if not spans:
                             continue
 
+                        # Combine text from all spans in the line
                         full_text = "".join([span.get("text", "") for span in spans]).strip()
                         if not full_text:
                             continue
@@ -37,15 +35,17 @@ class PDFLineExtractor:
                         first_span = spans[0]
                         bbox = self.get_line_bbox(spans)
 
-                        # Guard: Only calculate if bbox is valid
+                        # Calculate spacing from previous line
                         space_above = 0
                         space_below = 0
+                        x0, y0, x1, y1 = 0, 0, 0, 0
+                        
                         if bbox:
-                            y0, y1 = bbox
+                            x0, y0, x1, y1 = bbox
                             prev_line = page_lines[-1] if page_lines else None
                             if prev_line and "bbox" in prev_line:
-                                space_above = round(y0 - prev_line["bbox"][1], 2)
-                                space_below = round(prev_line["bbox"][0] - y1, 2)
+                                space_above = round(y0 - prev_line["bbox"][3], 2)
+                                space_below = round(prev_line["bbox"][1] - y1, 2)
 
                         line_data = {
                             "text": full_text,
@@ -56,6 +56,10 @@ class PDFLineExtractor:
                             "is_underlined": first_span.get("flags", 0) & 4 != 0,
                             "is_center": self.is_centered(line, page.rect),
                             "bbox": bbox,
+                            "x0": round(x0, 2),
+                            "y0": round(y0, 2),
+                            "x1": round(x1, 2),
+                            "y1": round(y1, 2),
                             "space_above": space_above,
                             "space_below": space_below,
                             "page": page_num
@@ -66,21 +70,24 @@ class PDFLineExtractor:
                 all_lines.extend(page_lines)
 
             except Exception as e:
-                print(f"Error extracting text from page: {e}")
+                continue
 
         self.pdf_lines = all_lines
-        print(f"Extracted {len(all_lines)} text lines")
         return all_lines
 
     def get_line_bbox(self, spans: List[Dict[str, Any]]):
+        """Calculate the bounding box for a line from its spans."""
         try:
+            x0 = min([span["bbox"][0] for span in spans if "bbox" in span])
             y0 = min([span["bbox"][1] for span in spans if "bbox" in span])
+            x1 = max([span["bbox"][2] for span in spans if "bbox" in span])
             y1 = max([span["bbox"][3] for span in spans if "bbox" in span])
-            return (y0, y1)
+            return (x0, y0, x1, y1)
         except Exception:
             return None
 
     def is_centered(self, line: Dict[str, Any], rect: fitz.Rect):
+        """Check if a line is centered on the page."""
         try:
             spans = line.get("spans", [])
             if not spans:
@@ -91,11 +98,12 @@ class PDFLineExtractor:
             x0, x1 = bbox[0], bbox[2]
             center_of_line = (x0 + x1) / 2
             page_center = (rect.x0 + rect.x1) / 2
-            return abs(center_of_line - page_center) < 50  # pixels
+            return abs(center_of_line - page_center) < 50
         except:
             return False
 
     def get_pdf_lines(self, include_metadata=True) -> List[Dict[str, Any]]:
+        """Return extracted lines with optional metadata."""
         lines = []
         for l in self.pdf_lines:
             line = {"text": l["text"], "page": l["page"]}
@@ -107,6 +115,10 @@ class PDFLineExtractor:
                     "is_italic": l.get("is_italic", False),
                     "is_underlined": l.get("is_underlined", False),
                     "is_center": l.get("is_center", False),
+                    "x0": l.get("x0", 0),
+                    "y0": l.get("y0", 0),
+                    "x1": l.get("x1", 0),
+                    "y1": l.get("y1", 0),
                     "space_above": l.get("space_above", 0),
                     "space_below": l.get("space_below", 0),
                 })
@@ -114,7 +126,14 @@ class PDFLineExtractor:
         return lines
 
     def save_lines_to_file(self, output_path: str, include_metadata: bool = True):
+        """Save extracted lines to a JSON file."""
         lines = self.get_pdf_lines(include_metadata)
         with open(output_path, "w", encoding="utf-8") as f:
             json.dump(lines, f, indent=4)
-        print(f"Saved to {output_path}")
+
+
+if __name__ == "__main__":
+    pdf_path = r"pdfs\Dinner Ideas - Mains_1.pdf"
+    extractor = PDFLineExtractor(pdf_path)
+    extractor.extract_text_lines()
+    extractor.save_lines_to_file("Dinner Ideas - Mains_1-new.json")
